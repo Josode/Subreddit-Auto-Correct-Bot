@@ -2,9 +2,10 @@
 test_words = []
 
 # get each word from file and append to list
-with open("word_list", "r")as words:
+with open("subs_list.txt", "r")as words:
     data = words.readlines()
     for line in data:
+        line = line.replace('/r/', '')
         test_words.append(line.replace('\n', ''))
 
 
@@ -43,7 +44,7 @@ def test_similarity(testcase, input):
             if inputlist[i] == testcase[i]:
                 equal += 1
             # tests if it equals any keys nearby on keyboard for mis-clicks
-            elif (testcase[i] == close[close.index(inputlist[i]) - 1]) or \
+            elif (testcase[i] == close[close.index(inputlist[i]) - 1]) or\
                  (testcase[i] == close[close.index(inputlist[i]) + 1]):
                 equal += 0.85
             # if chars at index don't equal, checks neighboring indexes for extra-clicks
