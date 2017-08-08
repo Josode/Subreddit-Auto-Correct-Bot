@@ -1,7 +1,7 @@
 import time
 from time import sleep
 import praw
-from SubAutoCorrectBot import Config
+from LinkRepairBot import Config
 
 r = praw.Reddit(username=Config.username,
                 password=Config.password,
@@ -12,7 +12,7 @@ r = praw.Reddit(username=Config.username,
 print('Delete downvoted comments for /u/SubAutoCorrectBot')
 
 user = r.redditor('SubAutoCorrectBot')
-comments = user.comments.controversial(limit=None)
+comments = user.comments.new(limit=None)
 
 threshold = 0
 past_deleted = []
@@ -20,11 +20,11 @@ past_deleted = []
 
 def past_replies():
     try:
-        with open("PastDeleted.txt", 'r')as file_:
+        with open("PastDeleted.txt", 'r')as file:
             print("Existing file found.")
-            for id in file_.readlines():
-                comment_id = id.replace("\n", "").lower()
-                past_deleted.append(comment_id)
+            for id in file.readlines():
+                id = id.replace("\n", "").lower()
+                past_deleted.append(id)
 
     except FileNotFoundError:
         with open("PastDeleted.txt", 'w'):
@@ -45,7 +45,6 @@ while True:
                 print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
         except:
             time.sleep(5)
-            print("error")
             continue
 
     with open("PastDeleted.txt", 'w') as file:

@@ -5,14 +5,17 @@ import time
 import re
 import traceback
 import logging
+from SubAutoCorrectBot import popularsubs_subscribercount
+
+# test for using praw 5 with OAuth and also testing a sub_exists to make more efficient
 
 past_comments = []  # comment id's already replied to
 blacklist = []  # wont reply to users or in subs
 subs_all = []  # over a million subreddits to test percent similarity with
 subs_popular = []  # over a thousand popular subreddits which are weighted more
 
-
-close = list("qwertyuiop[asdfghjkl;zxcvbnm,")  # letters and char's that are close together on keyboard
+close = list("qwertyuiop[asdfghjkl:zxcvbnm,")  # letters and char's that are close together on keyboard
+close_dict = {'q':'wa', 'w':'qs', 'e':'wr', 'r':'et', 't':'ry', 'y':'tu', 'u':'yi', 'i':'uo', 'o':'ip', 'p':''}
 sub = "all"
 comment_fetch_limit = 800
 threshold = 75.0  # the percent certainty the program must be in order to reply.
@@ -114,8 +117,30 @@ def test_similarity(sub_extracted, comment, r):
         notequal = 0
         len_difference = abs(len(sub_extracted) - len(testcase_list))
 
-        if testcase_str in subs_popular:
-            equal += 1
+        try:
+            if testcase_str in subs_popular:
+
+                subscribers_count = popularsubs_subscribercount.subscribercount
+                subscribers = subscribers_count[testcase_str]
+
+                if 0 >= subscribers < 5000:
+                    equal += 0.01
+                elif 5000 >= subscribers < 20000:
+                    equal += 0.25
+                elif 20000 >= subscribers < 100000:
+                    equal += 0.35
+                elif 100000 >= subscribers < 300000:
+                    equal += 0.6
+                elif 300000 >= subscribers < 500000:
+                    equal += 0.8
+                elif 500000 >= subscribers < 2000000:
+                    equal += 0.85
+                elif 2000000 >= subscribers < 7000000:
+                    equal += 0.95
+                elif 7000000 >= subscribers:
+                    equal += 1
+        except KeyError:
+            continue
 
         if sub_type == 'public':
             equal += 0.15
@@ -133,12 +158,12 @@ def test_similarity(sub_extracted, comment, r):
                 # tests if it equals any keys nearby on keyboard for mis-clicks
                 elif (testcase_list[i] == close[close.index(sub_extracted[i]) - 1]) or \
                      (testcase_list[i] == close[close.index(sub_extracted[i]) + 1]):
-                    equal += 0.45
+                    equal += 0.25
                 # if chars at index don't equal, checks neighboring indexes for extra-clicks
                 elif sub_extracted[i+1] == testcase_list[i] or sub_extracted[i-1] == testcase_list[i]:
-                    equal += 0.6
+                    equal += 0.75
                 elif sub_extracted[i+2] == testcase_list[i] or sub_extracted[i-2] == testcase_list[i]:
-                    equal += 0.2
+                    equal += 0.3
                 elif sub_extracted[i + 3] == testcase_list[i] or sub_extracted[i - 3] == testcase_list[i]:
                     equal += 0.05
                 else:
@@ -282,7 +307,6 @@ def run_bot(r):
 past_replies()
 blacklist_file()
 reddit = bot_login()
-print("Running bot on /r/" + sub)
 
 while True:
     try:
