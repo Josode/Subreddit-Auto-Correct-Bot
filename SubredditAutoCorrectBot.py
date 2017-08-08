@@ -6,8 +6,6 @@ import re
 import traceback
 import logging
 
-# test for using praw 5 with OAuth and also testing a sub_exists to make more efficient
-
 past_comments = []  # comment id's already replied to
 blacklist = []  # wont reply to users or in subs
 subs_all = []  # over a million subreddits to test percent similarity with
