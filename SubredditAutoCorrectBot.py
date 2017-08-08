@@ -23,7 +23,7 @@ threshold = 75.0  # the percent certainty the program must be in order to reply.
 ignore_phrases = ['we need a', 'someone make a', 'there should be a ', 'we need an', 'someone make an',
                   'there should be an', 'needs to make', 'should be a thing', 'needs to be a thing', 'needs to make a',
                   'needs to be', 'needs to be a', 'be called the', 'call it', 'make it', 'name it', 'someone make',
-                  'isnt already a', "isn't already a", "should be called"]
+                  'isnt already a', "isn't already a", "should be called", 'rename this sub', 'rename', 'renamed']
 
 # get each word from subs.txt and append to subs_all
 with open("subs.txt", "r")as file:
@@ -117,13 +117,15 @@ def test_similarity(sub_extracted, comment, r):
         len_difference = abs(len(sub_extracted) - len(testcase_list))
 
         if testcase_str in subs_popular:
-            equal += 0.5
+            equal += 1
 
         if sub_type == 'public':
-            equal += 0.05
+            equal += 0.15
+        elif sub_type == 'private' or sub_type == 'restricted':
+            notequal += 0.15
 
         # accounts for difference in length
-        notequal += len_difference
+        notequal += (len_difference / 3) * 2
 
         # test similarity
         for i in range(0, len(testcase_list)):
@@ -133,14 +135,14 @@ def test_similarity(sub_extracted, comment, r):
                 # tests if it equals any keys nearby on keyboard for mis-clicks
                 elif (testcase_list[i] == close[close.index(sub_extracted[i]) - 1]) or \
                      (testcase_list[i] == close[close.index(sub_extracted[i]) + 1]):
-                    equal += 0.60
+                    equal += 0.45
                 # if chars at index don't equal, checks neighboring indexes for extra-clicks
                 elif sub_extracted[i+1] == testcase_list[i] or sub_extracted[i-1] == testcase_list[i]:
-                    equal += 0.75
+                    equal += 0.6
                 elif sub_extracted[i+2] == testcase_list[i] or sub_extracted[i-2] == testcase_list[i]:
-                    equal += 0.30
+                    equal += 0.2
                 elif sub_extracted[i + 3] == testcase_list[i] or sub_extracted[i - 3] == testcase_list[i]:
-                    equal += 0.1
+                    equal += 0.05
                 else:
                     notequal += 1
             except IndexError:
