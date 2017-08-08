@@ -2,7 +2,7 @@
 test_words = []
 
 # get each word from file and append to list
-with open("subs_list.txt", "r")as words:
+with open("subs.txt", "r")as words:
     data = words.readlines()
     for line in data:
         line = line.replace('/r/', '')
@@ -17,7 +17,7 @@ close = list("qwertyuiop[asdfghjkl;zxcvbnm,")
 
 
 def test_similarity(testcase, input):
-    print("\ncomparing \""+input+"\" with \""+testcase+"\"")
+    # print("\ncomparing \""+input+"\" with \""+testcase+"\"")
 
     inputlist = list(input)
     testcase = list(testcase.lower())
@@ -44,30 +44,32 @@ def test_similarity(testcase, input):
             if inputlist[i] == testcase[i]:
                 equal += 1
             # tests if it equals any keys nearby on keyboard for mis-clicks
-            elif (testcase[i] == close[close.index(inputlist[i]) - 1]) or\
-                 (testcase[i] == close[close.index(inputlist[i]) + 1]):
-                equal += 0.85
+            elif (testcase[i] == close[close.index(inputlist[i]) - 1]) or \
+                    (testcase[i] == close[close.index(inputlist[i]) + 1]):
+                equal += 0.70
             # if chars at index don't equal, checks neighboring indexes for extra-clicks
-            elif inputlist[i+1] == testcase[i] or inputlist[i-1] == testcase[i]:
-                equal += 1
+            elif inputlist[i + 1] == testcase[i] or inputlist[i - 1] == testcase[i]:
+                equal += 0.65
             elif inputlist[i + 2] == testcase[i] or inputlist[i - 2] == testcase[i]:
-                equal += .4
+                equal += 0.30
+            elif inputlist[i + 3] == testcase[i] or inputlist[i - 3] == testcase[i]:
+                equal += 0.03
             else:
                 notequal += 1
         except IndexError:
             pass
 
-    print("equal: "+str(equal) + "\nnot equal: "+str(notequal))
+    # print("equal: "+str(equal) + "\nnot equal: "+str(notequal))
 
     # determines if testcase or input is longer, and uses longer one as numerator
     if len(testcase) > len(inputlist):
-        print("\nSimilarity: " + str(equal / len(testcase) * 100) + " %\n")
-        print("----------------------------------------------\n")
-        return equal / len(testcase) * 100
+        # print("\nSimilarity: " + str(equal / len(testcase) * 100) + " %\n")
+        # print("----------------------------------------------\n")
+        return equal / (len(testcase)+notequal) * 100
     else:
-        print("\nSimilarity: " + str(equal / len(inputlist) * 100) + " %\n")
-        print("----------------------------------------------\n")
-        return equal / len(inputlist) * 100
+        # print("\nSimilarity: " + str(equal / len(inputlist) * 100) + " %\n")
+        # print("----------------------------------------------\n")
+        return equal / (len(testcase)+notequal) * 100
 
 # adds key and value for each testcase word and percent calculated to dict
 for word in test_words:

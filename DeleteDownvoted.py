@@ -1,14 +1,19 @@
 import time
 from time import sleep
 import praw
-from LinkRepairBot import Config
+from SubAutoCorrectBot import Config
 
-r = praw.Reddit(user_agent='Delete downvoted comments for subreddit auto corrector')
-r.login(username=Config.username, password=Config.password, disable_warning=True)
+r = praw.Reddit(username=Config.username,
+                password=Config.password,
+                client_id=Config.client_id,
+                client_secret=Config.client_secret,
+                user_agent="Deletes comments under threshold for /u/SubAutoCorrectBot")
 
 print('Delete downvoted comments for /u/SubAutoCorrectBot')
 
-user = r.get_redditor('SubAutoCorrectBot')
+user = r.redditor('SubAutoCorrectBot')
+comments = user.comments.controversial(limit=None)
+
 threshold = 0
 past_deleted = []
 
@@ -29,17 +34,18 @@ def past_replies():
 past_replies()
 
 while True:
-    for comment in user.get_comments(limit=50):
+    for comment in comments:
         try:
             if comment.score < threshold and comment.id not in past_deleted:
                 comment.delete()
                 past_deleted.append(comment.id)
                 print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
-                print("\n\nComment in " + str(comment.subreddit) + "deleted on " +
+                print("\n\nComment in " + str(comment.subreddit) + " deleted on " +
                       time.asctime(time.localtime(time.time())) + ": \n\n" + str(comment.body) + "\n")
                 print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
         except:
             time.sleep(5)
+            print("error")
             continue
 
     with open("PastDeleted.txt", 'w') as file:

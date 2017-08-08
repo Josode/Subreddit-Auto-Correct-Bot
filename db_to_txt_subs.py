@@ -6,9 +6,9 @@ cur = sql.cursor()
 
 # 'SELECT last_seen FROM popular'
 # 'SELECT idstr FROM popular'
-# 'SELECT names FROM subreddits'
+# 'SELECT name FROM subreddits'
 
-cur.execute('SELECT names FROM subreddits')
+cur.execute('SELECT name FROM subreddits')
 
 names = [x[0] for x in cur.fetchall()]
 

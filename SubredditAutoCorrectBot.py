@@ -1,9 +1,12 @@
 import praw
+from prawcore import NotFound
 from SubAutoCorrectBot import Config
 import time
 import re
+import traceback
+import logging
 
-# to do: add weight for more popular subs (in subs_popular.txt)
+# test for using praw 5 with OAuth and also testing a sub_exists to make more efficient
 
 past_comments = []  # comment id's already replied to
 blacklist = []  # wont reply to users or in subs
@@ -19,13 +22,30 @@ threshold = 75.0  # the percent certainty the program must be in order to reply.
 # ignores comments like "someone
 ignore_phrases = ['we need a', 'someone make a', 'there should be a ', 'we need an', 'someone make an',
                   'there should be an', 'needs to make', 'should be a thing', 'needs to be a thing', 'needs to make a',
-                  'needs to be', 'needs to be a']
+                  'needs to be', 'needs to be a', 'be called the', 'call it', 'make it', 'name it', 'someone make',
+                  'isnt already a', "isn't already a", "should be called"]
 
-# get each word from file and append to list
+# get each word from subs.txt and append to subs_all
 with open("subs.txt", "r")as file:
     data = file.readlines()
     for line in data:
         subs_all.append(line.replace('\n', ''))
+
+# get each word from sub_popular.txt and append to subs_popular
+with open("subs_popular.txt", "r")as file:
+    data = file.readlines()
+    for line in data:
+        subs_popular.append(line.replace('\n', ''))
+
+
+# Checks if subreddit exists
+def sub_exists(subreddit, r):
+    exists = True
+    try:
+        r.subreddits.search_by_name(subreddit, exact=True)
+    except NotFound:
+        exists = False
+    return exists
 
 
 # open past comments txt file and append all id's to list. create new file if doesnt exist
@@ -42,6 +62,7 @@ def past_replies():
             pass
 
 
+# opens past repliess file and writess all current past replies
 def update_past_replies():
     with open("PastComments.txt", 'w') as file_:
         for item in past_comments:
@@ -67,17 +88,17 @@ def bot_login():
                            password=Config.password,
                            client_id=Config.client_id,
                            client_secret=Config.client_secret,
-                           user_agent="Auto-corrects mentions of subreddits (ex: /r/asjreddut -> "
-                                      "/r/askreddit). By /u/Josode")
+                           user_agent="Auto-corrects mentions of subreddits By /u/Josode")
+    print(_reddit_.user.me())
 
-    _reddit_.login(username=Config.username, password=Config.password, disable_warning=True)
     return _reddit_
 
 
 # test similarity between user inputted sub and 1 mil + subs in subs.txt. returns closest sub and percent similarity
-def test_similarity(sub_extracted):
+def test_similarity(sub_extracted, comment, r):
     sub_extracted_str = sub_extracted
     sub_extracted = list(sub_extracted)
+    sub_type = comment.subreddit.subreddit_type
 
     results = {}
 
@@ -95,6 +116,12 @@ def test_similarity(sub_extracted):
         notequal = 0
         len_difference = abs(len(sub_extracted) - len(testcase_list))
 
+        if testcase_str in subs_popular:
+            equal += 0.5
+
+        if sub_type == 'public':
+            equal += 0.05
+
         # accounts for difference in length
         notequal += len_difference
 
@@ -106,14 +133,14 @@ def test_similarity(sub_extracted):
                 # tests if it equals any keys nearby on keyboard for mis-clicks
                 elif (testcase_list[i] == close[close.index(sub_extracted[i]) - 1]) or \
                      (testcase_list[i] == close[close.index(sub_extracted[i]) + 1]):
-                    equal += 0.70
+                    equal += 0.60
                 # if chars at index don't equal, checks neighboring indexes for extra-clicks
                 elif sub_extracted[i+1] == testcase_list[i] or sub_extracted[i-1] == testcase_list[i]:
-                    equal += 0.65
+                    equal += 0.75
                 elif sub_extracted[i+2] == testcase_list[i] or sub_extracted[i-2] == testcase_list[i]:
                     equal += 0.30
                 elif sub_extracted[i + 3] == testcase_list[i] or sub_extracted[i - 3] == testcase_list[i]:
-                    equal += 0.03
+                    equal += 0.1
                 else:
                     notequal += 1
             except IndexError:
@@ -151,58 +178,76 @@ def test_similarity(sub_extracted):
 
 
 def run_bot(r):
-    subreddit = r.get_subreddit(sub)
-    comments = subreddit.get_comments(limit=comment_fetch_limit)
+    subreddit = r.subreddit(sub)
+    comments = subreddit.stream.comments()
+    start = round(time.time(), 1)
+    print("start time: " + str(start))
 
     for comment in comments:
+
+        if comment.created < start:
+            continue
+
         if str(comment.subreddit) in blacklist or str(comment.author) in blacklist or comment.id in past_comments:
-            break
+            continue
 
         comment_string = comment.body
         comment_html = comment.body_html
 
-        '''
         # attempts to filter out most bots
-        if 'bot' in comment_string.lower() or 'bot' in str(comment.author).lower():
-            break
-        '''
+        if 'bot' in comment_string.lower() or 'bot' in str(comment.author).lower() or 'was performed automatically'\
+                in comment_string.lower():
+            continue
 
         for phrase in ignore_phrases:
             if str(phrase) + " /r/" in comment_string or "/r/ " + phrase in comment_string:
                 continue
 
+        # find comments with sub mention
         if '/r/' in comment_string:
-            
+
             # grabs comments html and finds subreddit name.
             extracted_sub = re.search('<a href="/r/(.+?)">', comment_html)
 
+            # reply and display info on comment
             def reply_to_comment(sub):
                 print("\n\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
-                print("Comment found with id '" + str(comment.id) + "' by /u/" + str(comment.author))
+                print("Comment found with id '" + str(comment.id) + "' by /u/" + str(comment.author) + " in" + " /r/"
+                      + str(comment.subreddit))
                 print("Threshold: {}".format(threshold))
                 print("Comment source: " + comment.body)
                 print("\nExtracted subreddit: " + sub)
-                print("Link: https://www.reddit.com/r/" + sub)
-                top_match = test_similarity(sub_extracted=sub)
+                top_match = test_similarity(sub_extracted=sub, comment=comment, r=r)
                 top_match_sub = top_match[0]
                 top_match_percent = round(top_match[1], 2)
 
-                if top_match_percent >= threshold and top_match_percent != 100.0:
+                if top_match_percent >= 100.0:
+                    top_match_percent = 99.9
+
+                # adds nsfw warning in comment if nsfw
+                sub_nsfw = r.subreddit(top_match_sub).over18
+                nsfw = ''
+                if sub_nsfw:
+                    print(str(top_match_sub) + " is NSFW.")
+                    nsfw = ' (NSFW)'
+
+                if top_match_percent >= threshold:
                     try:
-                        comment.reply('Oops... It looks like you missspelled "/r/' + sub_extracted + '".'
-                                      "\n\n I am **" + str(top_match_percent) + "%** sure that you meant **/r/"
-                                      + top_match_sub+"**."
+                        comment.reply('It looks like "/r/' + sub_extracted + '" is not a subreddit.'
+                                      "\n\n Maybe you're looking for **/r/"+top_match_sub+nsfw+"** with a **" +
+                                      str(top_match_percent) + "%** match."
                                       "\n\n***\n"
-                                      "^^ ^^I'm ^^a ^^bot, ^^beep ^^boop "
+                                      "^^I'm ^^a ^^bot, ^^beep ^^boop "
                                       "^^| ^^Downvote ^^to ^^DELETE. "
                                       "^^| [^^Contact ^^me]"
-                                      "(http://www.reddit.com/message/compose/?to=LinkFixBot&subject=Contact+creator) "
-                                      "^^| ^^[Opt-out]"
-                                      "(http://www.reddit.com/message/compose/?to=LinkFixBot&subject=Opt+Out&message="
-                                      + str(comment.author) +
+                                      "(http://www.reddit.com/message/compose/?to=SubAutoCorrectBot&subject="
+                                      "Contact+creator) ^^| ^^[Opt-out]"
+                                      "(http://www.reddit.com/message/compose/?to=SubAutoCorrectBot&subject="
+                                      "Opt+Out&message=Click+send+to+opt+out" +
                                       ") ^^| ^^[Feedback]"
-                                      "(https://www.reddit.com/r/LinkFixBot/comments/6qys25/feedback_questions"
-                                      "_complaints_etc_can_be_made_here/) ")
+                                      "(https://www.reddit.com/r/SubAutoCorrectBot/comments/6s2sht/"
+                                      "feedback_questions_concerns_bugs_suggestions_etc"
+                                      "/) ")
 
                         print("REPLY SENT!")
                         past_comments.append(comment.id)
@@ -211,7 +256,7 @@ def run_bot(r):
                     except:
                         pass
                 else:
-                    print("Percent too low or exact match. NOT replying.")
+                    print("Percent below threshold. NOT replying.")
                     update_past_replies()
                     past_comments.append(comment.id)
                     print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n")
@@ -220,13 +265,15 @@ def run_bot(r):
                 sub_extracted = extracted_sub.group(1).lower()
 
                 # removes occasional / found at end of sub
-                _sub_ = []
+                slash_count = 0
                 for char in sub_extracted:
-                    if char != '/':
-                        _sub_.append(char)
-                sub_extracted = ''.join(_sub_)
+                    if char == '/':
+                        slash_count += 1
 
-                reply_to_comment(sub_extracted)
+                if sub_exists(sub_extracted, r) or slash_count > 0 or len(sub_extracted) <= 2:
+                    continue
+                else:
+                    reply_to_comment(sub_extracted)
 
         update_past_replies()
 
@@ -238,5 +285,8 @@ reddit = bot_login()
 print("Running bot on /r/" + sub)
 
 while True:
-    run_bot(reddit)
-    time.sleep(0)
+    try:
+        run_bot(reddit)
+    except Exception as e:
+        logging.error(traceback.format_exc())
+    time.sleep(1)
