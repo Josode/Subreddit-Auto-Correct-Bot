@@ -1,4 +1,7 @@
 
+# initial auto-correct program. This file is not used in running the bot.
+
+
 test_words = []
 
 # get each word from file and append to list
