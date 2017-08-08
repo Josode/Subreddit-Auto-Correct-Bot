@@ -3,6 +3,7 @@ sql = sqlite3.connect('sb.db')
 cur = sql.cursor()
 
 # Takes 1 mil+ subs from sb.db file and puts them into subs.txt
+# [download for sb.db]( https://github.com/voussoir/reddit/releases)
 
 # 'SELECT last_seen FROM popular'
 # 'SELECT idstr FROM popular'
