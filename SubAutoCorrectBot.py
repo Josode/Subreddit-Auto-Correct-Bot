@@ -15,16 +15,17 @@ subs_all = []  # over a million subreddits to test percent similarity with
 subs_popular = []  # over a thousand popular subreddits which are weighted more
 
 close = list("qwertyuiop[asdfghjkl:zxcvbnm,")  # letters and char's that are close together on keyboard
-close_dict = {'q':'wa', 'w':'qs', 'e':'wr', 'r':'et', 't':'ry', 'y':'tu', 'u':'yi', 'i':'uo', 'o':'ip', 'p':''}
-sub = "all"
+sub = "test"
 comment_fetch_limit = 800
 threshold = 80.0  # the percent certainty the program must be in order to reply.
 
+'''
 # ignores comments like "someone make an /r/newsubreddit"
 ignore_phrases = ['we need a', 'someone make a', 'there should be a ', 'we need an', 'someone make an',
                   'there should be an', 'needs to make', 'should be a thing', 'needs to be a thing', 'needs to make a',
                   'needs to be', 'needs to be a', 'be called the', 'call it', 'make it', 'name it', 'someone make',
                   'isnt already a', "isn't already a", "should be called", 'rename this sub', 'rename', 'renamed']
+'''
 
 # get each word from subs.txt and append to subs_all
 with open("subs.txt", "r")as file:
@@ -188,16 +189,19 @@ def test_similarity(sub_extracted, comment, r):
     top_match_sub = keys[percents_list.index(max(percents_list))]
     top_match_percent = max(percents_list)
     print(top_match_sub + ': ' + str(top_match_percent) + " %")
+    percents_list.remove(top_match_percent)
 
     # sorts percents and gets 2nd and 3rd best matches
     percents_list.sort()
-    second_match_sub = keys[percents_list.index(percents_list[-2])]
-    second_match_percent = str(percents_list[-2])
-    print(second_match_sub + ': ' + second_match_percent + " %")
+    second_match_sub = keys[percents_list.index(max(percents_list))]
+    second_match_percent = max(percents_list)
+    print(second_match_sub + ': ' + str(second_match_percent) + " %")
+    percents_list.remove(second_match_percent)
 
-    third_match_sub = keys[percents_list.index(percents_list[-3])]
-    third_match_percent = str(percents_list[-3])
-    print(third_match_sub + ': ' + third_match_percent + " %\n")
+    third_match_sub = keys[percents_list.index(max(percents_list))]
+    third_match_percent = max(percents_list)
+    print(third_match_sub + ': ' + str(third_match_percent) + " %\n")
+    percents_list.remove(third_match_percent)
 
     return [top_match_sub, top_match_percent]
 
@@ -231,16 +235,17 @@ def run_bot(r):
                           str(top_match_percent) + "%** match."
                           "\n\n***\n"
                           "^^I'm ^^a ^^bot, ^^beep ^^boop "
-                          "^^| ^^Downvote ^^to ^^DELETE. "
-                          "^^| [^^Contact ^^me]"
+                          "^^| ^^2 ^^downvotes ^^to ^^DELETE. "
+                          "^^| [^^Contact ^^creator]"
                           "(http://www.reddit.com/message/compose/?to=SubAutoCorrectBot&subject="
                           "Contact+creator) ^^| ^^[Opt-out]"
                           "(http://www.reddit.com/message/compose/?to=SubAutoCorrectBot&subject="
                           "Opt+Out&message=Click+send+to+opt+out"
                           ") ^^| ^^[Feedback]"
                           "(https://www.reddit.com/r/SubAutoCorrectBot/comments/6s2sht/"
-                          "feedback_questions_concerns_bugs_suggestions_etc"
-                          "/) ")
+                          "feedback_questions_concerns_bugs_suggestions_etc/) "
+                          "^^| ^^[Code]"
+                          "(https://github.com/Josode/Subreddit-Auto-Correct-Bot) ")
 
             print("REPLY SENT!")
             past_comments.append(comment_id)
@@ -252,10 +257,12 @@ def run_bot(r):
                 in comment_string.lower():
             continue
 
+        '''
         for phrase in ignore_phrases:
             if phrase + " /r/" in comment_string.lower() or "/r/ " + phrase in comment_string.lower()\
                     or phrase + " r/" in comment_string.lower() or "r/ " + phrase in comment_string.lower():
                 continue
+        '''
 
         # find comments with sub mention
         if '/r/' in comment_string or 'r/' in comment_string:
@@ -294,7 +301,7 @@ def run_bot(r):
                     top_match_percent = 99.9
 
                 submissions = 0
-                for submission in top_sub_r.new(limit=10):
+                for submission in top_sub_r.hot(limit=5):
                     submissions += 1
                 if submissions <= 2:
                     print("2 or less posts on subreddit. NOT replying.")
