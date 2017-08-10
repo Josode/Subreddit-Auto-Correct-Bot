@@ -1,7 +1,9 @@
 import time
-from time import sleep
 import praw
-from LinkRepairBot import Config
+import Config
+import logging
+import traceback
+
 
 r = praw.Reddit(username=Config.username,
                 password=Config.password,
@@ -12,7 +14,6 @@ r = praw.Reddit(username=Config.username,
 print('Delete downvoted comments for /u/SubAutoCorrectBot')
 
 user = r.redditor('SubAutoCorrectBot')
-comments = user.comments.new(limit=None)
 
 threshold = 0
 past_deleted = []
@@ -34,6 +35,8 @@ def past_replies():
 past_replies()
 
 while True:
+    comments = user.comments.new(limit=None)
+
     for comment in comments:
         try:
             if comment.score < threshold and comment.id not in past_deleted:
@@ -43,11 +46,11 @@ while True:
                 print("\n\nComment in " + str(comment.subreddit) + " deleted on " +
                       time.asctime(time.localtime(time.time())) + ": \n\n" + str(comment.body) + "\n")
                 print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
-        except:
-            time.sleep(5)
+        except Exception as e:
+            logging.error(traceback.format_exc())
             continue
 
     with open("PastDeleted.txt", 'w') as file:
         for item in past_deleted:
             file.write(str(item) + "\n")
-    sleep(3)
+    time.sleep(2)
