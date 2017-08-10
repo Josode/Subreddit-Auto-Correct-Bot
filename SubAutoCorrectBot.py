@@ -15,7 +15,7 @@ subs_all = []  # over a million subreddits to test percent similarity with
 subs_popular = []  # over a thousand popular subreddits which are weighted more
 
 close = list("qwertyuiop[asdfghjkl:zxcvbnm,")  # letters and char's that are close together on keyboard
-sub = "test"
+sub = "all"
 comment_fetch_limit = 800
 threshold = 80.0  # the percent certainty the program must be in order to reply.
 
@@ -328,6 +328,8 @@ def run_bot(r):
                         reply_to_comment(sub_extracted)
                     except Exception as e:
                         logging.error(traceback.format_exc())
+                        print("ERROR when trying to run reply_to_comment")
+                        continue
                 else:
                     print("Percent below threshold. NOT replying.")
                     update_past_replies()
