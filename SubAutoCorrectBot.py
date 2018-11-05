@@ -7,6 +7,7 @@ import traceback
 import logging
 import popularsubs_subscribercount
 
+
 # SubAutoCorrectBot2 attempting to re-orginize reply to comment to allow for more checks
 
 past_comments = []  # comment id's already replied to
@@ -14,18 +15,28 @@ blacklist = []  # wont reply to users or in subs
 subs_all = []  # over a million subreddits to test percent similarity with
 subs_popular = []  # over a thousand popular subreddits which are weighted more
 
-close = list("qwertyuiop[asdfghjkl:zxcvbnm,")  # letters and char's that are close together on keyboard
+close = list("1234567890qwertyuiop[asdfghjkl:zxcvbnm,")  # letters and char's that are close together on keyboard
 sub = "all"
-comment_fetch_limit = 800
-threshold = 80.0  # the percent certainty the program must be in order to reply.
+comment_fetch_limit = 1000
+threshold = 80.0  # the percent certainty the program must be above in order to reply. (80.0 generally best)
 
-'''
 # ignores comments like "someone make an /r/newsubreddit"
 ignore_phrases = ['we need a', 'someone make a', 'there should be a ', 'we need an', 'someone make an',
                   'there should be an', 'needs to make', 'should be a thing', 'needs to be a thing', 'needs to make a',
                   'needs to be', 'needs to be a', 'be called the', 'call it', 'make it', 'name it', 'someone make',
                   'isnt already a', "isn't already a", "should be called", 'rename this sub', 'rename', 'renamed']
-'''
+
+reply_footer = "\n\n***\n^^I'm ^^a ^^bot, ^^beep ^^boop "\
+               "^^| ^^downvote ^^to ^^DELETE. "\
+               "^^| [^^Contact ^^creator]"\
+               "(http://www.reddit.com/message/compose/?to=SubAutoCorrectBot&subject="\
+               "Contact+creator) ^^| ^^[Opt-out]"\
+               "(http://www.reddit.com/message/compose/?to=SubAutoCorrectBot&subject="\
+               "Opt+Out&message=Click+send+to+opt+out"\
+               ") ^^| ^^[Feedback]"\
+               "(https://np.reddit.com/r/SubAutoCorrectBot/) "\
+               "^^| ^^[Code]"\
+               "(https://github.com/Josode/Subreddit-Auto-Correct-Bot) "
 
 # get each word from subs.txt and append to subs_all
 with open("subs.txt", "r")as file:
@@ -90,8 +101,7 @@ def bot_login():
                            password=Config.password,
                            client_id=Config.client_id,
                            client_secret=Config.client_secret,
-                           user_agent="Auto-corrects mentions of subreddits By /u/Josode")
-    print(_reddit_.user.me())
+                           user_agent="Auto-corrects misspelled mentions of subreddits By /u/Josode")
 
     return _reddit_
 
@@ -118,6 +128,7 @@ def test_similarity(sub_extracted, comment, r):
         notequal = 0
         len_difference = abs(len(sub_extracted) - len(testcase_list))
 
+        # adds different weights for different subscriber counts to popular subreddits
         try:
             if testcase_str in subs_popular:
 
@@ -125,31 +136,30 @@ def test_similarity(sub_extracted, comment, r):
                 subscribers = subscribers_count[testcase_str]
 
                 if 0 >= subscribers < 5000:
-                    equal += 0.1
-                elif 5000 >= subscribers < 20000:
-                    equal += 0.5
-                elif 20000 >= subscribers < 100000:
-                    equal += 0.65
-                elif 100000 >= subscribers < 300000:
-                    equal += 0.7
-                elif 300000 >= subscribers < 500000:
                     equal += 0.8
-                elif 500000 >= subscribers < 2000000:
+                elif 5000 >= subscribers < 20000:
                     equal += 0.85
-                elif 2000000 >= subscribers < 7000000:
+                elif 20000 >= subscribers < 100000:
                     equal += 0.95
+                elif 100000 >= subscribers < 300000:
+                    equal += 1.3
+                elif 300000 >= subscribers < 500000:
+                    equal += 1.45
+                elif 500000 >= subscribers < 2000000:
+                    equal += 1.55
+                elif 2000000 >= subscribers < 7000000:
+                    equal += 1.8
                 elif 7000000 >= subscribers:
                     equal += 1
         except KeyError:
             continue
 
-        if sub_type == 'public':
-            equal += 0.1
-        elif sub_type == 'private' or sub_type == 'restricted':
+        # prefer not to reply to private subs
+        if sub_type == 'private' or sub_type == 'restricted':
             notequal += 0.5
 
         # accounts for difference in length
-        notequal += (len_difference / 5) * 4
+        notequal += (len_difference / 10) * 6.5
 
         # test similarity
         for i in range(0, len(testcase_list)):
@@ -162,11 +172,11 @@ def test_similarity(sub_extracted, comment, r):
                     equal += 0.35
                 # if chars at index don't equal, checks neighboring indexes for extra-clicks
                 elif sub_extracted[i+1] == testcase_list[i] or sub_extracted[i-1] == testcase_list[i]:
-                    equal += 0.75
+                    equal += 0.7
                 elif sub_extracted[i+2] == testcase_list[i] or sub_extracted[i-2] == testcase_list[i]:
-                    equal += 0.3
+                    equal += 0.65
                 elif sub_extracted[i + 3] == testcase_list[i] or sub_extracted[i - 3] == testcase_list[i]:
-                    equal += 0.05
+                    equal += 0.4
                 else:
                     notequal += 1
             except IndexError:
@@ -217,52 +227,46 @@ def run_bot(r):
         if comment.created < start:
             continue
 
-        if str(comment.subreddit) in blacklist or str(comment.author) in blacklist or comment.id in past_comments:
+        if str(comment.subreddit).lower() in blacklist or str(comment.author).lower() in blacklist or comment.id in \
+                past_comments:
             continue
 
         comment_string = comment.body
         comment_html = comment.body_html
         comment_id = comment.id
 
-        def reply_to_comment(sub):
-            # change "a" to "an" if percent in 80s.
-            a = 'a'
-            if str(top_match_percent)[0] == '8':
-                a = 'an'
+        def reply_to_comment(sub, type):
+            if type == 'sub':
+                # change "a" to "an" if percent in 80s.
+                a = 'a'
+                if str(top_match_percent)[0] == '8':
+                    a = 'an'
 
-            comment.reply('It looks like "/r/' + sub_extracted + '" is not a subreddit.'
-                          "\n\n Maybe you're looking for **/r/" + top_match_sub + nsfw + "** with "+a+" **" +
-                          str(top_match_percent) + "%** match."
-                          "\n\n***\n"
-                          "^^I'm ^^a ^^bot, ^^beep ^^boop "
-                          "^^| ^^2 ^^downvotes ^^to ^^DELETE. "
-                          "^^| [^^Contact ^^creator]"
-                          "(http://www.reddit.com/message/compose/?to=SubAutoCorrectBot&subject="
-                          "Contact+creator) ^^| ^^[Opt-out]"
-                          "(http://www.reddit.com/message/compose/?to=SubAutoCorrectBot&subject="
-                          "Opt+Out&message=Click+send+to+opt+out"
-                          ") ^^| ^^[Feedback]"
-                          "(https://www.reddit.com/r/SubAutoCorrectBot/comments/6s2sht/"
-                          "feedback_questions_concerns_bugs_suggestions_etc/) "
-                          "^^| ^^[Code]"
-                          "(https://github.com/Josode/Subreddit-Auto-Correct-Bot) ")
+                normal_reply = 'It looks like "/r/' + sub + '" is not a subreddit.' + \
+                              "\n\n Maybe you're looking for **/r/" + top_match_sub + nsfw + "**. " + reply_footer
+                # + "** "with "+a+" **" + str(top_match_percent) + "%** match." + reply_footer +"** "
+
+                april_fools ='It looks like "[/r/' + sub + '](' \
+                               'https://www.youtube.com/watch?v=dQw4w9WgXcQ)" is not a subreddit.' + \
+                              "\n\n Maybe you're looking for [**/r/" + top_match_sub + nsfw + "**](" \
+                              "https://www.youtube.com/watch?v=dQw4w9WgXcQ) with "+a+" **" + \
+                              str(top_match_percent) + "%** match." + reply_footer
+
+                comment.reply(normal_reply)
+            elif type == 'user':
+                print("\nUser most likely meant to mention a user.")
+                comment.reply('It looks like "/r/' + sub + '" is not a subreddit.'
+                              "\n\n Maybe you meant to mention the user " + "**/u/" + sub + "**."
+                              + reply_footer)
 
             print("REPLY SENT!")
             past_comments.append(comment_id)
             update_past_replies()
-            print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n")
 
-        # attempts to filter out most bots
-        if 'bot' in comment_string.lower() or 'bot' in str(comment.author).lower() or 'was performed automatically'\
-                in comment_string.lower():
-            continue
-
-        '''
         for phrase in ignore_phrases:
             if phrase + " /r/" in comment_string.lower() or "/r/ " + phrase in comment_string.lower()\
                     or phrase + " r/" in comment_string.lower() or "r/ " + phrase in comment_string.lower():
                 continue
-        '''
 
         # find comments with sub mention
         if '/r/' in comment_string or 'r/' in comment_string:
@@ -283,12 +287,24 @@ def run_bot(r):
                     continue
 
                 # comment now eligible to be replied to. Continue with checks
-                print("\n\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
+                print("\n==-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
                 print("Comment found with id '" + str(comment_id) + "' by /u/" + str(comment.author) + " in" + " /r/"
                       + str(comment.subreddit))
                 print("Threshold: {}".format(threshold))
                 print("Comment source: " + comment.body)
                 print("\nExtracted subreddit: {}".format(sub_extracted))
+
+
+                '''
+                # see if non-existing sub is really a user (people sometimes do /r/ instead of /u/)
+                try:
+                    user_id = r.redditor(sub_extracted).id
+                    print("User exists with id: " + user_id)
+                    reply_to_comment(sub_extracted, type='user')
+                    continue
+                except:
+                    print("User doesnt exist!")
+                '''
 
                 # returns list: [top_match_sub, top_match_percent]
                 top_match = test_similarity(sub_extracted=sub_extracted, comment=comment, r=r)
@@ -297,15 +313,22 @@ def run_bot(r):
                 top_match_percent = round(top_match[1], 2)
                 top_sub_r = r.subreddit(top_match_sub)  # praw object of top subreddit
 
+                if sub_extracted == "traaa" or sub_extracted == "traaaa":
+                    top_match_sub = "traaaaaaannnnnnnnnns"
+
                 if top_match_percent >= 100.0:
                     top_match_percent = 99.9
 
                 submissions = 0
                 for submission in top_sub_r.hot(limit=5):
+                    title = submission.title
                     submissions += 1
+
+
                 if submissions <= 2:
                     print("2 or less posts on subreddit. NOT replying.")
                     continue
+
 
                 # adds nsfw warning in comment if nsfw
                 sub_nsfw = top_sub_r.over18
@@ -314,6 +337,7 @@ def run_bot(r):
                     print(str(top_match_sub) + " is NSFW.")
                     nsfw = ' (NSFW)'
 
+
                 # do secondary check to see if comment has been edited
                 new_comment_string = r.comment(comment_id).body
                 if new_comment_string != comment_string:
@@ -321,14 +345,17 @@ def run_bot(r):
                     print("Before: " + comment_string)
                     print("After: " + new_comment_string)
                     continue
+                
 
                 # call function to send comment
                 if top_match_percent >= threshold:
                     try:
-                        reply_to_comment(sub_extracted)
+                        reply_to_comment(sub_extracted, type="sub")
                     except Exception as e:
                         logging.error(traceback.format_exc())
-                        print("ERROR when trying to run reply_to_comment")
+                        print("\n\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-"
+                              "\nERROR when trying to run reply_to_comment\n\n"
+                              "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n")
                         continue
                 else:
                     print("Percent below threshold. NOT replying.")
@@ -348,4 +375,4 @@ while True:
         run_bot(reddit)
     except Exception as e:
         logging.error(traceback.format_exc())
-    time.sleep(1)
+    time.sleep(0)
