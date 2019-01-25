@@ -5,3 +5,5 @@ A reddit bot that looks through reddit comments for subreddit mentions. It runs 
 If you're wondering, i included a lot of the text files and random sorting/test scripts because im working on this bot from two different computers.
 
 Using Python 3.5.2 and Praw 5.0.1
+
+This whole project was done for fun and learning. It's definetly messy and not very well structured.
