@@ -6,4 +6,4 @@ If you're wondering, i included a lot of the text files and random sorting/test 
 
 Using Python 3.5.2 and Praw 5.0.1
 
-This whole project was done for fun and learning. It's definetly messy and not very well structured but I learned a lot about managing and creating social media bots.
+This whole project was done for fun and learning. It's definetly messy and not very well structured but I learned a lot about managing and creating reddit bots.
